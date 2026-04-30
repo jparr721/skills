@@ -1,15 +1,15 @@
 ---
 name: nextjs-code-quality-audit
-description: Use when you want a thorough code quality audit of a Next.js codebase — identifying refactoring opportunities, misplaced concerns, DRY violations, missing tests, and structural issues. Produces a fixes.md report. Does not change application logic.
+description: Use when you want a thorough code quality audit of a Next.js codebase - identifying refactoring opportunities, misplaced concerns, DRY violations, missing tests, and structural issues. Outputs all recommendations directly. Does not change application logic.
 ---
 
 # Next.js Code Quality Audit
 
 ## Overview
 
-Dispatch a team of specialized agents to audit a Next.js codebase in parallel. Each agent examines one concern. Results are merged into a single `fixes.md` file at the project root.
+Dispatch a team of specialized agents to audit a Next.js codebase in parallel. Each agent examines one concern. Results are merged and output directly to the conversation.
 
-**Non-negotiable constraint:** No fix may change application behavior. Every recommendation targets code structure, test coverage, abstraction, or readability — never logic.
+**Non-negotiable constraint:** No fix may change application behavior. Every recommendation targets code structure, test coverage, abstraction, or readability - never logic.
 
 ## When to Use
 
@@ -20,7 +20,7 @@ Dispatch a team of specialized agents to audit a Next.js codebase in parallel. E
 
 ## Agent Team
 
-Dispatch **all five agents in parallel** using the Agent tool. Each agent writes its findings to a temp section. After all complete, merge into `fixes.md`.
+Dispatch **all five agents in parallel** using the Agent tool. Each agent returns its findings as structured output. After all complete, merge and output directly to the conversation.
 
 ```dot
 digraph audit {
@@ -31,7 +31,7 @@ digraph audit {
   a3 [label="3. Test Coverage"];
   a4 [label="4. Readability"];
   a5 [label="5. Structure"];
-  merge [label="Merge → fixes.md" shape=box];
+  merge [label="Merge -> output to user" shape=box];
 
   start -> {a1 a2 a3 a4 a5};
   a1 -> merge;
@@ -128,14 +128,14 @@ Look for:
 **Prompt the agent with:**
 > Analyze the project's directory structure, imports graph, and file organization. Identify structural issues that make the codebase harder to navigate or maintain. Flag unused exports, dead code, circular dependencies, and files that mix multiple concerns. Suggest moves or splits only when they clearly improve organization — don't reorganize for the sake of reorganizing.
 
-## Output: fixes.md
+## Output
 
-After all agents complete, merge findings into `fixes.md` at the project root with this structure:
+After all agents complete, merge findings and output them directly to the user. Do **not** write the report to a file. Use this structure:
 
 ```markdown
-# Code Quality Audit — [Project Name]
+# Code Quality Audit - [Project Name]
 
-> Generated [date]. No fix changes application behavior.
+> No fix changes application behavior.
 
 ## Summary
 
