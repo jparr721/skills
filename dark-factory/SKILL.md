@@ -205,7 +205,8 @@ Merge ticket PRs in topological order (no PR is merged before all its `blocks`/`
    - The Rebase agent **must** re-run `pr-review-toolkit` on the PR after force-pushing. Fix any new findings. Return a standard Agent Report block with `toolkit_review: remaining=0` before the orchestrator retries the merge.
    - Structural/ambiguous conflict -> stop, escalate to the user.
 3. Mark the ticket `PR_MERGED` in the ledger. Collapse the row.
-4. After each merge, re-poll the epic (5.2) for new backfill tickets.
+4. **Sync the orchestrator branch with `TARGET_BRANCH`** after each merge: `git fetch origin && git rebase origin/{{TARGET_BRANCH}}`. Resolve any conflicts directly - do not dispatch an agent for this. The orchestrator branch carries no code changes, so conflicts are rare and always local (e.g. a merge commit touching a file the orchestrator branch also touched). Resolve, then continue.
+5. After each merge, re-poll the epic (5.2) for new backfill tickets.
 
 ### 5.5 EPIC CLOSE
 
