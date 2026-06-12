@@ -110,7 +110,7 @@ This is the whole point. Violating it is the only way this fails.
 - Keep your entire working state in one **Ledger** (section 4 table). When it grows, compress completed rows to a single status glyph.
 - Refer to everything large by **handle**: branch name, worktree id, Linear ticket id, PR number, a path on disk, or a Linear comment URL. Never by content.
 
-If you ever feel the urge to "just look at the file to be sure" - don't. Dispatch a one-line verification sub-agent and consume its boolean.
+If you ever feel the urge to "just look at the file to be sure" - don't. Dispatch a one-line verification sub-agent (`model: haiku`) and consume its boolean.
 
 ## 4. The Ledger and report schema
 
@@ -161,7 +161,7 @@ Reject and re-dispatch anything that does not conform. You read **only** this bl
 ### 5.1 INTAKE + PLAN
 
 1. **Fetch children** with `list_issues` using `parentId = LINEAR_TASK_ID`. Keep only metadata in the ledger (ids, titles, labels). If the task has **no children**, it is a single work unit: skip decomposition, create one ticket row, and run a single-ticket swarm wave (the rest of the pipeline is unchanged).
-2. **Dispatch one Planner agent** to deep-read each child (via `get_issue` per child for body + `gitBranchName` + relations) and the relevant code, and return:
+2. **Dispatch one Planner agent** (`model: sonnet` - planning is extraction and topological sorting, not synthesis; a missed soft dep degrades to a rebase conflict the pipeline already recovers from) to deep-read each child (via `get_issue` per child for body + `gitBranchName` + relations) and the relevant code, and return:
    - per-ticket acceptance criteria distilled to <=3 bullets,
    - per-ticket `gitBranchName` (the work branch for that ticket),
    - a **dependency DAG** (hard deps from Linear `blocks`/`blockedBy` + soft deps from predicted shared-file contention),
@@ -201,7 +201,7 @@ Merge ticket PRs in topological order (no PR is merged before all its `blocks`/`
 
 1. For each eligible PR: run `gh pr merge <PR> --squash --delete-branch` (or `--merge` per repo convention). Verify CI is green before merging; abort and surface the failure if red.
 2. **Conflict on merge:** if `gh pr merge` fails due to conflict (the PR branch is behind `TARGET_BRANCH` after previous merges):
-   - Dispatch a **Rebase agent** on that ticket's sub-worktree: `git fetch origin {{TARGET_BRANCH}} && git rebase origin/{{TARGET_BRANCH}}`, resolve conflicts, run typecheck/lint/tests, force-push the branch.
+   - Dispatch a **Rebase agent** (`model: sonnet` - the rebase is mechanical and structural conflicts escalate anyway) on that ticket's sub-worktree: `git fetch origin {{TARGET_BRANCH}} && git rebase origin/{{TARGET_BRANCH}}`, resolve conflicts, run typecheck/lint/tests, force-push the branch.
    - The Rebase agent **must** re-run `pr-review-toolkit` on the PR after force-pushing. Fix any new findings. Return a standard Agent Report block with `toolkit_review: remaining=0` before the orchestrator retries the merge.
    - Structural/ambiguous conflict -> stop, escalate to the user.
 3. Mark the ticket `PR_MERGED` in the ledger. Collapse the row.
@@ -243,7 +243,7 @@ Runs only when all ledger rows are `PR_MERGED` and the Backfill queue is empty.
 
 ## 7. Background QA Agent (separate, continuous, off the critical path)
 
-Runs in its own loop, independent of the orchestrator's phase machine:
+Runs in its own loop, independent of the orchestrator's phase machine. Dispatch with `model: sonnet` - it runs for the entire epic, so it is the largest cumulative spend, and it never edits application code:
 1. Pull the latest `TARGET_BRANCH`, stand up the app, run smoke tests + exploratory QA flows.
 2. For each defect, **file a Linear ticket** with `save_issue`: `parentId = LINEAR_TASK_ID`, `team = <confirmed team>`, `labels = ["qa-found", <severity>]`, `description = <repro steps + failing commit>`. Confirm labels exist first via `list_issue_labels`; create missing ones via `create_issue_label`.
 3. Loop continuously; never block the swarm.
@@ -253,6 +253,7 @@ When `QA_FEEDBACK=true`, `qa-found` tickets are drained through the same epic re
 ## 8. Guardrails
 
 - **Parallelism:** never exceed `MAX_PARALLEL` live agents; never two agents on the same file.
+- **Model tiers:** clerical agents run on cheaper models - Planner, QA, and Rebase agents on `sonnet`; verification one-liners on `haiku`. Work agents and CI Fix agents inherit the session default - never downgrade an agent that writes application code.
 - **Idempotency:** agents must be resumable - re-running on a partially-done branch is safe. Step 0's branch confirmation is idempotent.
 - **No silent scope creep:** unclear ticket -> `NEEDS_DECISION`, not improvisation.
 - **Comprehensive over minimal:** within scope, agents take the fullest correct solution, never a band-aid. Scope-expanding ideas become Linear `follow-up` tickets under the epic, never silent inline expansion.
@@ -272,14 +273,14 @@ A single compact summary: task id, tickets shipped vs blocked, all PR URLs (merg
 |-------|----------|-----------------------------|
 | Step 0 confirm branch | Main thread (git + Linear MCP) | epic id, title, current branch |
 | Step 1 param gate | Main thread + user | `AUTO_MERGE`, `MAX_PARALLEL`, team |
-| PLAN | Planner agent | DAG + waves + per-ticket branches |
+| PLAN | Planner agent (`sonnet`) | DAG + waves + per-ticket branches |
 | SWARM | Work agents (parallel) | Agent Report blocks + PR URLs |
 | Epic re-poll | Main thread (Linear MCP) | new ticket ids -> Backfill queue |
 | PR REVIEW/FIX | Review + Fix agents (parallel per ticket) | Open findings list |
 | PR MERGE | Main thread (`gh pr merge`, topo order) | PR merge status |
 | EPIC CLOSE | Main thread (Linear MCP) | closure confirmation |
 | CLEANUP | Main thread | sub-worktree-clean boolean |
-| QA (background) | QA agent (continuous) | QA bugs list |
+| QA (background) | QA agent (continuous, `sonnet`) | QA bugs list |
 
 ## Common Mistakes
 
